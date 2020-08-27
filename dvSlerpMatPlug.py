@@ -1,4 +1,9 @@
 """
+Ceci est un exercice pour presenter l'utilisation de \
+    l'alebre lineaire dans un plug-ins python \
+        vous pouvez a partir de ce plug-in creer une chaine de 3 joints \
+            ces joints seront positionner en fonction de la position de \
+                3 locators en input du node
 """
 
 import maya.OpenMayaMPx as OpenMayaMPx
@@ -20,7 +25,7 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
     matrixB = OpenMaya.MObject()
     parentInverseMatrix = OpenMaya.MObject()
 
-    weight = OpenMaya.MObject()
+    offsetMatrix = OpenMaya.MObject()
 
     # OUTPUTS
     xform = OpenMaya.MObject()
@@ -59,7 +64,6 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
     
         # Calculate angle between them.
         cos_half_theta = qa.w * qb.w + qa.x * qb.x + qa.y * qb.y + qa.z * qb.z
-
         # if qa == qb or qa == -qb then theta = 0 and we can return qa
         if abs(cos_half_theta) >= 1.0:
             qm.w = qa.w
@@ -117,6 +121,10 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
     def compute(self, plug, data):
 
         # Read plugs.
+        rigMode_state = data.inputValue(
+                DvSlerpMatPlug.rigMode
+            ).asBool()
+
         blend_value = data.inputValue(
                 DvSlerpMatPlug.blend
             ).asFloat()
@@ -129,28 +137,48 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
                 DvSlerpMatPlug.matrixB
             ).asMatrix()
 
+        mTrsfmMtxB = OpenMaya.MTransformationMatrix(matrixB_mMatrix)
+        posB = mTrsfmMtxB.getTranslation(OpenMaya.MSpace.kWorld);
+
         parentInverseMatrix_mMatrix = data.inputValue(
                 DvSlerpMatPlug.parentInverseMatrix
             ).asMatrix()
+
+        if rigMode_state:
+            offset_handle = data.outputValue(
+                    DvSlerpMatPlug.offsetMatrix
+                )
+            offsetMatrix_mMatrix = matrixA_mMatrix * matrixB_mMatrix.inverse()
+            offset_handle.setMMatrix(offsetMatrix_mMatrix)
         
+        offsetMatrix_mMatrix = data.inputValue(
+                DvSlerpMatPlug.offsetMatrix
+            ).asMatrix()
+        
+        offsetedMatrix = offsetMatrix_mMatrix * matrixB_mMatrix;
+
         mTrsfmMtxA = OpenMaya.MTransformationMatrix(matrixA_mMatrix)
-
-        # Valeur rotation Euler en radian
+        mTrsfmMtxA.setTranslation(
+                OpenMaya.MVector(0.0, 0.0, 0.0),
+                OpenMaya.MSpace.kWorld
+            )
         quatA = mTrsfmMtxA.rotation()
-        mTrsfmMtxB = OpenMaya.MTransformationMatrix(matrixB_mMatrix)
-        transB = mTrsfmMtxB.translation(OpenMaya.MSpace.kWorld)
 
-        # Valeur rotation Euler en radian
+        mTrsfmMtxB = OpenMaya.MTransformationMatrix(offsetedMatrix)
+        mTrsfmMtxB.setTranslation(
+                OpenMaya.MVector(0.0, 0.0, 0.0),
+                OpenMaya.MSpace.kWorld
+            )
         quatB = mTrsfmMtxB.rotation()
 
         quatC = self.slerp(quatA, quatB, blend_value)
 
         matC = quatC.asMatrix()
         mTrsfmMtxC = OpenMaya.MTransformationMatrix(matC)
-        mTrsfmMtxC.setTranslation(transB, OpenMaya.MSpace.kWorld)
+        mTrsfmMtxC.setTranslation(posB, OpenMaya.MSpace.kWorld)
         matC = mTrsfmMtxC.asMatrix()
 
-        final_mMatrix = matC * parentInverseMatrix_mMatrix
+        final_mMatrix =  matC * parentInverseMatrix_mMatrix
 
         transforms = self.decompose_matrix(final_mMatrix)
         
@@ -181,7 +209,7 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
             )
         out_scl.set3Double(
                 transforms[2][0],
-                transforms[2][1]+(2 * transforms[1][2]),
+                transforms[2][1] + (2 * transforms[1][2]),
                 transforms[2][2]
             )
 
@@ -203,6 +231,16 @@ def initialize():
     uAttr = OpenMaya.MFnUnitAttribute()
 
     # INPUTS
+    DvSlerpMatPlug.rigMode = nAttr.create(
+            "rigMode",
+            "rigmode",
+            OpenMaya.MFnNumericData.kBoolean,
+            True
+        )
+    nAttr.setWritable(True)
+    nAttr.setStorable(True)
+    DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.rigMode)
+
     DvSlerpMatPlug.blend = nAttr.create(
             "blend",
             "blnd",
@@ -214,6 +252,7 @@ def initialize():
     nAttr.setMin(0.0)
     nAttr.setMax(1.0)
     DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.blend)
+
 
     DvSlerpMatPlug.matrixA = mAttr.create(
             "matrixA",
@@ -235,6 +274,13 @@ def initialize():
         )
     mAttr.setStorable(False)
     DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.parentInverseMatrix)
+
+    DvSlerpMatPlug.offsetMatrix = mAttr.create(
+            "offsetMatrix",
+            "offm"
+        )
+    mAttr.setStorable(False)
+    DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.offsetMatrix)
 
     # OUTPUTS
     # Translate
@@ -325,6 +371,10 @@ def initialize():
     DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.xform)
 
     # Attribut affect
+    DvSlerpMatPlug.attributeAffects(
+            DvSlerpMatPlug.rigMode,
+            DvSlerpMatPlug.xform
+        )
 
     DvSlerpMatPlug.attributeAffects(
             DvSlerpMatPlug.blend,
