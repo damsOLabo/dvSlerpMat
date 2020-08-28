@@ -118,6 +118,7 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
         
         return [trans.x, trans.y, trans.z], [angles.x, angles.y, angles.z], scale
 
+
     def compute(self, plug, data):
 
         # Read plugs.
@@ -209,8 +210,8 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
             )
         out_scl.set3Double(
                 transforms[2][0],
-                transforms[2][1] + (2 * transforms[1][2]),
-                transforms[2][2]
+                transforms[2][1],# + (2 * transforms[1][2]),
+                transforms[2][2]# + (2 * transforms[1][1])
             )
 
         xform_handle.setClean()
