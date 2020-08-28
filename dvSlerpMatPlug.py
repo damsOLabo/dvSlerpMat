@@ -23,6 +23,7 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
     rigMode = OpenMaya.MObject()
     matrixA = OpenMaya.MObject()
     matrixB = OpenMaya.MObject()
+    weights = OpenMaya.MObject()
     parentInverseMatrix = OpenMaya.MObject()
 
     offsetMatrix = OpenMaya.MObject()
@@ -141,6 +142,11 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
         mTrsfmMtxB = OpenMaya.MTransformationMatrix(matrixB_mMatrix)
         posB = mTrsfmMtxB.getTranslation(OpenMaya.MSpace.kWorld);
 
+        weights = data.inputValue(
+                DvSlerpMatPlug.weights
+            ).asDouble2()
+        print "weights :: ", weights
+
         parentInverseMatrix_mMatrix = data.inputValue(
                 DvSlerpMatPlug.parentInverseMatrix
             ).asMatrix()
@@ -210,8 +216,8 @@ class DvSlerpMatPlug(OpenMayaMPx.MPxNode):
             )
         out_scl.set3Double(
                 transforms[2][0],
-                transforms[2][1],# + (2 * transforms[1][2]),
-                transforms[2][2]# + (2 * transforms[1][1])
+                transforms[2][1] + ((1-weights[0]) * transforms[1][2]),
+                transforms[2][2] + ((1-weights[1]) * transforms[1][1])
             )
 
         xform_handle.setClean()
@@ -254,6 +260,15 @@ def initialize():
     nAttr.setMax(1.0)
     DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.blend)
 
+    DvSlerpMatPlug.weights = nAttr.create(
+            "weights",
+            "weights",
+            OpenMaya.MFnNumericData.k2Double,
+            1.0
+        )
+    nAttr.setWritable(True)
+    nAttr.setStorable(True)
+    DvSlerpMatPlug.addAttribute(DvSlerpMatPlug.weights)
 
     DvSlerpMatPlug.matrixA = mAttr.create(
             "matrixA",
@@ -374,6 +389,11 @@ def initialize():
     # Attribut affect
     DvSlerpMatPlug.attributeAffects(
             DvSlerpMatPlug.rigMode,
+            DvSlerpMatPlug.xform
+        )
+
+    DvSlerpMatPlug.attributeAffects(
+            DvSlerpMatPlug.weights,
             DvSlerpMatPlug.xform
         )
 
