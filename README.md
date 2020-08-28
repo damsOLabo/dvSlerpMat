@@ -2,7 +2,7 @@
 |:--------:|:--------:|
 |Mode rig|True|
 
-# dvParentSwitch
+# dvSlerpMat
 ![scene|medium](./docs/images/scene.png)
 
 ## Presentation
